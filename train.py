@@ -117,12 +117,13 @@ def train():
                 torch.save(model.state_dict(), save_file_name)
 
 
-def val(model,dataloader,loss_fn,metrix):
+def val(model, dataloader, loss_fn, metrix):
     with torch.no_grad():
         iters = 0
         loss = 0.0
         accuracy = 0.0
-        for imgs,masks in dataloader:
+        accuracy_class = np.array([0.0]*11)
+        for imgs, masks in dataloader:
             iters += 1
             # cpu转gpu
             imgs = imgs.to(device=device, non_blocking=True)
@@ -132,9 +133,14 @@ def val(model,dataloader,loss_fn,metrix):
             # 计算loss
             loss += loss_fn(output, masks).item()
             accuracy += metrix(output, masks).item()
+
+            for i in range(11):
+                accuracy_class[i] += metrix(output[:,i,:,:], masks[:,i,:,:]).item()
+
         loss /= iters
         accuracy /= iters
-    return loss,accuracy
+        accuracy_class /= iters
+    return loss, accuracy
 
 
 if __name__ == "__main__":
