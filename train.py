@@ -41,9 +41,9 @@ def bce_loss(outputs, targets):
 # 可以自己选择加不加，我感觉你的数据比较特殊，最多加一些噪声的增强，翻转/crop等操作会破坏原信息
 def get_aug(p=0.7):
     return Compose([
-        #VerticalFlip(p=0.4),  # flip-y
-        #RandomRotate90(p=0.5),  # rorate
-        #RandomResizedCrop(512, 512, p=0.6),
+        # VerticalFlip(p=0.4),  # flip-y
+        # RandomRotate90(p=0.5),  # rorate
+        # RandomResizedCrop(512, 512, p=0.6),
         ShiftScaleRotate(shift_limit=0, scale_limit=(0.8, 1.2), rotate_limit=(-60, 60), p=1),
         OneOf([
             RandomContrast(limit=0.2),
@@ -58,13 +58,17 @@ def train():
     n_val_iter = 10  # 每隔10 iter计算测试及loss和accuracy
     load_iters = 0  # 加载之前训练的模型(指定iter数)
     # 实例化模型
-    model = U_Net(3, 11).to(device)
+    # model = U_Net(3, 11).to(device)
+    # model = smp.UnetPlusPlus(encoder_name='resnet34', in_channels=3, classes=11).to(device)
+    # model = smp.UnetPlusPlus(encoder_name='resnext50_32x4d', in_channels=3, classes=11).to(device)
+    # model = smp.PSPNet(encoder_name='resnet34',in_channels=3, classes=11).to(device)
     # model = unet_resnet('resnext50_32x4d', 3, 11, False).to(device)
     # model = unet_resnet('resnet18', 3, 11, False).to(device)
     # model = unet_resnet('resnet101', 3, 11, False).to(device)
     # model = smp.unet(encoder_name='resnet34', in_channels=3, classes=11)  # segmentation_models_pytorch库可以很方便的调用各种语义分割模型架构，可以github主页看具体支持哪些结构
     # model = smp.unet(encoder_name='efficientnet-b4', in_channels=3, classes=11)
     # model = smp.unet(encoder_name='se_resnet50', in_channels=3, classes=11)
+
     # 加载训练好的权重
     if (load_iters != 0):
         pre = torch.load(os.path.join('./result/checkpoint', str(load_iters) + '.pth'))
@@ -152,6 +156,7 @@ def val(model, dataloader, loss_fn, metrix):
         accuracy_class /= iters
         print(f'Val: accuracy_class:{accuracy_class}\n average accuracy_class: {sum(accuracy_class)/11}')
     return loss, accuracy, accuracy_class
+
 
 
 if __name__ == "__main__":
