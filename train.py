@@ -3,7 +3,7 @@ from torch.utils.data import Dataset, DataLoader
 from torch.optim import Adam
 import numpy as np
 import os, glob, cv2, time
-# import segmentation_models_pytorch as smp
+import segmentation_models_pytorch as smp
 from albumentations import *
 from lib.dataset import MyDataset
 from lib.unet import unet_resnet
@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 import copy
 
 # tensorboard路径，训练可视化
-log_dir = 'result/Unet/log'
+log_dir = 'result/resnet50/log'
 if not os.path.exists(log_dir):
     os.makedirs(log_dir)
 log_writer = SummaryWriter(log_dir=log_dir)
@@ -21,7 +21,7 @@ log_writer = SummaryWriter(log_dir=log_dir)
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 # 模型存储路径
-model_dir = 'result/Unet/checkpoint'
+model_dir = 'result/resnet50/checkpoint'
 
 
 def make_dirs():  # 对应文件夹不存在的话就创建文件夹
@@ -41,9 +41,9 @@ def bce_loss(outputs, targets):
 # 可以自己选择加不加，我感觉你的数据比较特殊，最多加一些噪声的增强，翻转/crop等操作会破坏原信息
 def get_aug(p=0.7):
     return Compose([
-        # VerticalFlip(p=0.4),  # flip-y
-        # RandomRotate90(p=0.5),  # rorate
-        # RandomResizedCrop(512, 512, p=0.6),
+        #VerticalFlip(p=0.4),  # flip-y
+        #RandomRotate90(p=0.5),  # rorate
+        #RandomResizedCrop(512, 512, p=0.6),
         ShiftScaleRotate(shift_limit=0, scale_limit=(0.8, 1.2), rotate_limit=(-60, 60), p=1),
         OneOf([
             RandomContrast(limit=0.2),
@@ -54,21 +54,22 @@ def get_aug(p=0.7):
 
 
 def train():
-    n_save_iter = 50  # 每隔200 iter保存一下模型
-    n_val_iter = 10  # 每隔10 iter计算测试及loss和accuracy
+    n_save_iter = 100  # 每隔200 iter保存一下模型
+    n_val_iter = 100  # 每隔10 iter计算测试及loss和accuracy
     load_iters = 0  # 加载之前训练的模型(指定iter数)
     # 实例化模型
     # model = U_Net(3, 11).to(device)
     # model = smp.UnetPlusPlus(encoder_name='resnet34', in_channels=3, classes=11).to(device)
     # model = smp.UnetPlusPlus(encoder_name='resnext50_32x4d', in_channels=3, classes=11).to(device)
     # model = smp.PSPNet(encoder_name='resnet34',in_channels=3, classes=11).to(device)
+    # model = smp.DeepLabV3Plus(encoder_name='resnet34',in_channels=3, classes=11).to(device)
     # model = unet_resnet('resnext50_32x4d', 3, 11, False).to(device)
+    model = smp.Unet(encoder_name='resnet50', in_channels=3, classes=11).to(device)
     # model = unet_resnet('resnet18', 3, 11, False).to(device)
     # model = unet_resnet('resnet101', 3, 11, False).to(device)
     # model = smp.unet(encoder_name='resnet34', in_channels=3, classes=11)  # segmentation_models_pytorch库可以很方便的调用各种语义分割模型架构，可以github主页看具体支持哪些结构
     # model = smp.unet(encoder_name='efficientnet-b4', in_channels=3, classes=11)
     # model = smp.unet(encoder_name='se_resnet50', in_channels=3, classes=11)
-
     # 加载训练好的权重
     if (load_iters != 0):
         pre = torch.load(os.path.join('./result/checkpoint', str(load_iters) + '.pth'))
@@ -78,17 +79,17 @@ def train():
 
     # 加载训练数据
     dataset = MyDataset(tfms=get_aug(), n_class=11)
-    dataloader = DataLoader(dataset, batch_size=50, shuffle=True, num_workers=0)
-    dataloader_val = DataLoader(MyDataset(tfms=None, n_class=11, train=False), batch_size=1, shuffle=True,
-                                num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=100, shuffle=True, num_workers=0, drop_last=False)
+    dataloader_val = DataLoader(MyDataset(tfms=None, n_class=11, train=False), batch_size=20, shuffle=True,
+                                num_workers=0, drop_last=False)
 
     # 训练
     iters = load_iters
-    train_loss_log = open('result/Unet/train_loss.txt', 'a')
-    train_accuracy_log = open('result/Unet/train_accuracy.txt', 'a')
-    val_loss_log = open('result/Unet/val_loss.txt', 'a')
-    val_accuracy_log = open('result/Unet/val_accuracy.txt', 'a')
-    while iters < 3000:
+    train_loss_log = open('result/resnet50/train_loss.txt', 'a')
+    train_accuracy_log = open('result/resnet50/train_accuracy.txt', 'a')
+    val_loss_log = open('result/resnet50/val_loss.txt', 'a')
+    val_accuracy_log = open('result/resnet50/val_accuracy.txt', 'a')
+    while iters < 10000:
         for imgs, masks in dataloader:
             iters += 1
             imgs = imgs.to(device=device, non_blocking=True)
@@ -154,9 +155,9 @@ def val(model, dataloader, loss_fn, metrix):
         accuracy /= iters
 
         accuracy_class /= iters
-        print(f'Val: accuracy_class:{accuracy_class}\n average accuracy_class: {sum(accuracy_class)/11}')
+        ac = accuracy_class[1:]
+        print(f'Val: accuracy_class:{ac}\n average accuracy_class: {sum(ac)/10}')
     return loss, accuracy, accuracy_class
-
 
 
 if __name__ == "__main__":
